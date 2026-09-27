@@ -28,7 +28,7 @@ litellm-proxy-extras==0.4.94
 restrictedpython>=8.5,<9.0
 rich>=13.9.4,<14.0
 inquirerpy>=0.3.4,<1.0
-polars>=1.38.1,<2.0
+polars>=1.44.2,<2.0
 soundfile>=0.12.1,<1.0
 pyroscope-io>=0.8.16,<1.0; sys_platform != "win32"
 expression>=5.6.0,<6.0
