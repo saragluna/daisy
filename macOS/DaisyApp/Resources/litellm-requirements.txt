@@ -2,7 +2,7 @@
 # Daisy supplies the selected exact LiteLLM version separately and installs
 # this open-source proxy dependency set instead.
 pip==26.2
-gunicorn>=23.0.0,<24.0
+gunicorn>=26.2.0,<27.0
 uvicorn>=0.33.0,<1.0
 granian>=2.7.4,<3.0
 uvloop>=0.22.1,<1.0; sys_platform != "win32"
