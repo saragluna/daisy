@@ -1,0 +1,12 @@
+{
+  "name": "daisy-copilot-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pinned and hardened copilot-api runtime used by Daisy",
+  "dependencies": {
+    "copilot-api": "0.7.0"
+  },
+  "overrides": {
+    "srvx": "0.11.13"
+  }
+}
