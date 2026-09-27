@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 1,
+  "modelsEndpoint": "http://127.0.0.1:4141/v1/models?limit=1000",
+  "deviceFlow": {
+    "clientId": "Iv1.b507a08c87ecfe98",
+    "scope": "read:user",
+    "grantType": "urn:ietf:params:oauth:grant-type:device_code",
+    "beginEndpoint": "https://github.com/login/device/code",
+    "tokenEndpoint": "https://github.com/login/oauth/access_token",
+    "minimumIntervalSeconds": 5,
+    "slowDownIncrementSeconds": 5,
+    "beginResponse": "{\"device_code\":\"device-123\",\"user_code\":\"ABCD-EFGH\",\"verification_uri\":\"https://github.com/login/device\",\"interval\":2}",
+    "expectedUserCode": "ABCD-EFGH",
+    "expectedDeviceCode": "device-123",
+    "expectedVerificationUri": "https://github.com/login/device",
+    "expectedIntervalSeconds": 5,
+    "pollResponses": [
+      { "input": "{\"access_token\":\"token-123\"}", "status": "token", "value": "token-123" },
+      { "input": "{\"error\":\"authorization_pending\"}", "status": "pending" },
+      { "input": "{\"error\":\"slow_down\"}", "status": "slowDown" },
+      { "input": "{\"error\":\"expired_token\",\"error_description\":\"The code expired.\"}", "status": "failure", "value": "The code expired." }
+    ]
+  },
+  "tokens": [
+    {
+      "name": "reads LF environment",
+      "environment": "OTHER=value\nGITHUB_TOKEN=github-token\n",
+      "expected": "github-token",
+      "rendered": "GITHUB_TOKEN=github-token\n"
+    },
+    {
+      "name": "reads BOM and CRLF",
+      "environment": "﻿GITHUB_TOKEN=  spaced-token  \r\n",
+      "expected": "spaced-token",
+      "rendered": "GITHUB_TOKEN=spaced-token\n"
+    }
+  ],
+  "liteLlmVersions": [
+    { "name": "empty is rejected", "input": "", "valid": false },
+    { "name": "numeric release", "input": "1.83.9", "valid": true },
+    { "name": "latest channel is rejected", "input": "latest", "valid": false },
+    { "name": "PEP 440 suffix", "input": "1.83.9+cpu", "valid": true },
+    { "name": "space is rejected", "input": "1.83 beta", "valid": false },
+    { "name": "leading punctuation is rejected", "input": "-latest", "valid": false }
+  ],
+  "jsonObjects": [
+    {
+      "name": "sorts nested object keys",
+      "input": "{\"z\":[2,1],\"a\":{\"d\":null,\"c\":true}}",
+      "valid": true,
+      "expected": "{\n  \"a\": {\n    \"c\": true,\n    \"d\": null\n  },\n  \"z\": [\n    2,\n    1\n  ]\n}"
+    },
+    {
+      "name": "empty object",
+      "input": "{}",
+      "valid": true,
+      "expected": "{}"
+    },
+    { "name": "array root is rejected", "input": "[]", "valid": false },
+    { "name": "malformed JSON is rejected", "input": "{", "valid": false }
+  ],
+  "modelResponses": [
+    {
+      "name": "normalizes API response",
+      "input": "{\"object\":\"list\",\"data\":[{\"id\":\"zeta\"},{\"id\":\"claude-3\"},{\"id\":\"gpt-4o\"},{\"id\":\"gpt-4o\"},{\"id\":\" GPT-4 \"},{\"id\":\"\"},{\"other\":1},null,{\"id\":\"alpha\"}]}",
+      "valid": true,
+      "expected": ["GPT-4", "gpt-4o", "claude-3", "alpha", "zeta"]
+    },
+    { "name": "missing data is rejected", "input": "{}", "valid": false },
+    { "name": "non-array data is rejected", "input": "{\"data\":{}}", "valid": false }
+  ],
+  "modelModes": [
+    { "modelId": "text-embedding-3-small", "expected": "embedding" },
+    { "modelId": "gpt-5.2-codex", "expected": "responses" },
+    { "modelId": "o3-mini", "expected": "responses" },
+    { "modelId": "claude-sonnet-4", "expected": "chat" }
+  ],
+  "configuredModels": [
+    {
+      "name": "matches exact provider model",
+      "config": "model_list:\n  - model_name: \"mini\"\n    litellm_params:\n      model: \"github_copilot/gpt-4o-mini\"\n",
+      "modelId": "gpt-4o-mini",
+      "expected": true
+    },
+    {
+      "name": "does not use substring membership",
+      "config": "model_list:\n  - model_name: \"mini\"\n    litellm_params:\n      model: \"github_copilot/gpt-4o-mini\"\n",
+      "modelId": "gpt-4o",
+      "expected": false
+    }
+  ],
+  "liteLlmMutations": [
+    {
+      "name": "adds chat model to empty config",
+      "operation": "add",
+      "input": "",
+      "modelId": "gpt-4o",
+      "modelName": "friendly",
+      "expected": "model_list:\n  - model_name: \"friendly\"\n    litellm_params:\n      model: \"github_copilot/gpt-4o\"\n"
+    },
+    {
+      "name": "adds embedding model and normalizes CRLF",
+      "operation": "add",
+      "input": "model_list: []\r\n",
+      "modelId": "text-embedding-3-small",
+      "modelName": "embed",
+      "expected": "model_list:\n  - model_name: \"embed\"\n    model_info:\n      mode: embedding\n    litellm_params:\n      model: \"github_copilot/text-embedding-3-small\"\n"
+    },
+    {
+      "name": "adds responses model",
+      "operation": "add",
+      "input": "model_list:\n",
+      "modelId": "gpt-5-codex",
+      "modelName": "code \"fast\"",
+      "expected": "model_list:\n  - model_name: \"code \\\"fast\\\"\"\n    model_info:\n      mode: responses\n    litellm_params:\n      model: \"github_copilot/gpt-5-codex\"\n"
+    },
+    {
+      "name": "existing exact model is a no-op",
+      "operation": "add",
+      "input": "model_list:\r\n  - model_name: \"four\"\r\n    litellm_params:\r\n      model: \"github_copilot/gpt-4o\"\r\n",
+      "modelId": "gpt-4o",
+      "modelName": "ignored",
+      "expected": "model_list:\r\n  - model_name: \"four\"\r\n    litellm_params:\r\n      model: \"github_copilot/gpt-4o\"\r\n"
+    },
+    {
+      "name": "removes one model and preserves the next",
+      "operation": "remove",
+      "input": "model_list:\n  - model_name: \"four\"\n    litellm_params:\n      model: \"github_copilot/gpt-4o\"\n  - model_name: \"sonnet\"\n    litellm_params:\n      model: \"github_copilot/claude-sonnet-4\"\n",
+      "modelId": "gpt-4o",
+      "expected": "model_list:\n  - model_name: \"sonnet\"\n    litellm_params:\n      model: \"github_copilot/claude-sonnet-4\"\n"
+    },
+    {
+      "name": "last removal leaves an explicit empty list",
+      "operation": "remove",
+      "input": "model_list:\n  - model_name: \"four\"\n    litellm_params:\n      model: \"github_copilot/gpt-4o\"\n",
+      "modelId": "gpt-4o",
+      "expected": "model_list: []"
+    },
+    {
+      "name": "missing removal is a no-op",
+      "operation": "remove",
+      "input": "model_list: []\r\n",
+      "modelId": "gpt-4o",
+      "expected": "model_list: []\r\n"
+    }
+  ]
+}

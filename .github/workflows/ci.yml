@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: macOS
+    runs-on: macos-14
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Run Swift conformance tests
+        run: swift test
+
+      - name: Build app bundle
+        run: ./run.sh --build-only
+
+      - name: Package app bundle
+        run: |
+          mkdir -p artifacts
+          ditto -c -k --sequesterRsrc --keepParent \
+            build/Daisy.app artifacts/Daisy-macOS.zip
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Daisy-macOS
+          path: artifacts/Daisy-macOS.zip
+          if-no-files-found: error
+
+  windows:
+    name: Windows (${{ matrix.runtime }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime:
+          - win-x64
+          - win-arm64
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Run .NET conformance tests
+        if: matrix.runtime == 'win-x64'
+        run: dotnet run --project Tests/Windows/Daisy.Core.ContractTests/Daisy.Core.ContractTests.csproj
+
+      - name: Publish ${{ matrix.runtime }}
+        shell: pwsh
+        run: .\Windows\publish.ps1 -Runtime ${{ matrix.runtime }}
+
+      - name: Upload ${{ matrix.runtime }} artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: Daisy-${{ matrix.runtime }}
+          path: artifacts/Daisy-${{ matrix.runtime }}/
+          if-no-files-found: error
+
+  runtime-security:
+    name: Managed runtime security
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Install locked runtime without dependency scripts
+        working-directory: macOS/DaisyApp/Resources/copilot-runtime
+        run: npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+
+      - name: Audit managed runtime dependencies
+        working-directory: macOS/DaisyApp/Resources/copilot-runtime
+        run: npm audit --omit=dev --audit-level=moderate
+
+      - name: Apply and verify hardening patch
+        working-directory: macOS/DaisyApp/Resources/copilot-runtime
+        run: |
+          node patch-copilot-api.mjs
+          entrypoint=node_modules/copilot-api/dist/main.js
+          grep -qF 'hostname: "127.0.0.1"' "$entrypoint"
+          grep -qF 'process.env.DAISY_GITHUB_TOKEN' "$entrypoint"
+          grep -qF 'Missing GitHub token supplied by Daisy' "$entrypoint"
+          ! grep -qF 'server.use(cors());' "$entrypoint"
+          ! grep -qF 'server.route("/token", tokenRoute);' "$entrypoint"
+          ! grep -qF 'else if (options.githubToken)' "$entrypoint"
+
+      - name: Verify open-source LiteLLM runtime
+        run: |
+          ! grep -F 'litellm[proxy]' macOS/DaisyApp/ServiceManager.swift Windows/Daisy.Windows/ServiceManager.cs
+          python3 -m venv /tmp/daisy-litellm-venv
+          version=$(tr -d '[:space:]' < macOS/DaisyApp/Resources/litellm-runtime-version.txt)
+          test "$version" = open-proxy.2
+          /tmp/daisy-litellm-venv/bin/python -m pip install \
+            --disable-pip-version-check \
+            'litellm==1.101.0' \
+            -r macOS/DaisyApp/Resources/litellm-requirements.txt
+          /tmp/daisy-litellm-venv/bin/python -m pip install \
+            --disable-pip-version-check \
+            'pip-audit==2.10.1'
+          /tmp/daisy-litellm-venv/bin/python - <<'PY'
+          import importlib.metadata
+
+          assert importlib.metadata.version("litellm") == "1.101.0"
+          try:
+              importlib.metadata.version("litellm-enterprise")
+          except importlib.metadata.PackageNotFoundError:
+              pass
+          else:
+              raise SystemExit("litellm-enterprise must not be installed")
+          PY
+          /tmp/daisy-litellm-venv/bin/pip-audit --local

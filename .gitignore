@@ -1,0 +1,29 @@
+.DS_Store
+.build/
+build/
+*.xcuserdata/
+DerivedData/
+
+# .NET build output
+**/bin/
+**/obj/
+artifacts/
+
+# Local/editor state
+.claude/
+**/node_modules/
+
+# Secrets and machine-local runtime state
+.env
+.env.*
+!.env.example
+*.log
+*.key
+*.pem
+*.p12
+*.pfx
+*.mobileprovision
+*.provisionprofile
+*.jks
+*.keystore
+secrets*.json
