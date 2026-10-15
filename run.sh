@@ -38,8 +38,9 @@ fi
 
 /bin/rm -f build/Daisy.app/Contents/MacOS/Daisy
 /bin/rm -rf build/Daisy.app/Contents/MacOS/Daisy_Daisy.bundle
+/bin/rm -rf build/Daisy.app/Contents/Resources/Daisy_Daisy.bundle
 /bin/cp .build/release/Daisy build/Daisy.app/Contents/MacOS/Daisy
-/bin/cp -rf .build/release/Daisy_Daisy.bundle build/Daisy.app/Contents/MacOS/
+/bin/cp -rf .build/release/Daisy_Daisy.bundle build/Daisy.app/Contents/Resources/
 
 resource_directory=.build/release/Daisy_Daisy.bundle
 if [ -d "$resource_directory/Contents/Resources" ]; then
@@ -47,7 +48,7 @@ if [ -d "$resource_directory/Contents/Resources" ]; then
 fi
 /bin/cp -f "$resource_directory/AppIcon.icns" build/Daisy.app/Contents/Resources/AppIcon.icns
 
-bundled_resource_directory=build/Daisy.app/Contents/MacOS/Daisy_Daisy.bundle
+bundled_resource_directory=build/Daisy.app/Contents/Resources/Daisy_Daisy.bundle
 if [ -d "$bundled_resource_directory/Contents/Resources" ]; then
     bundled_resource_directory="$bundled_resource_directory/Contents/Resources"
 fi
