@@ -318,15 +318,31 @@ final class ServiceManager: ObservableObject {
             encoding: .utf8
         ).trimmingCharacters(in: .whitespacesAndNewlines)
         if installedMarker == desiredMarker,
+           isSupportedLiteLLMPython(liteLLMVenvPath.appendingPathComponent("bin/python")),
            FileManager.default.isExecutableFile(atPath: executable.path) {
             return
         }
 
         let fm = FileManager.default
         let venvPython = liteLLMVenvPath.appendingPathComponent("bin/python")
-        if !fm.isExecutableFile(atPath: venvPython.path) {
-            guard let python = findExecutable(named: "python3") else {
+        if !isSupportedLiteLLMPython(venvPython) {
+            let candidates = ["python3.12", "python3.13", "python3.14", "python3.11", "python3.10", "python3"]
+                .compactMap { findExecutable(named: $0) }
+            guard let python = candidates.first(where: isSupportedLiteLLMPython) else {
                 throw ServiceError.pythonNotFound
+            }
+            if fm.fileExists(atPath: liteLLMVenvPath.path) {
+                let backup = SettingsManager.appSupportDir.appendingPathComponent(
+                    "litellm-venv-backup-\(UUID().uuidString)"
+                )
+                try fm.moveItem(at: liteLLMVenvPath, to: backup)
+                DispatchQueue.main.async {
+                    LogManager.shared.append(
+                        service: .liteLLMProxy,
+                        stream: "out",
+                        content: "Incompatible Python runtime backed up to \(backup.path)\n"
+                    )
+                }
             }
             try fm.createDirectory(
                 at: SettingsManager.appSupportDir,
@@ -367,6 +383,25 @@ final class ServiceManager: ObservableObject {
             [.posixPermissions: 0o600],
             ofItemAtPath: liteLLMRuntimeMarkerPath.path
         )
+    }
+
+    private func isSupportedLiteLLMPython(_ executable: URL) -> Bool {
+        guard FileManager.default.isExecutableFile(atPath: executable.path) else { return false }
+        let process = Process()
+        process.executableURL = executable
+        process.arguments = [
+            "-c", "import sys; sys.exit(0 if (3, 10) <= sys.version_info[:2] < (3, 15) else 1)"
+        ]
+        process.environment = processEnvironment()
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        do {
+            try process.run()
+            process.waitUntilExit()
+            return process.terminationStatus == 0
+        } catch {
+            return false
+        }
     }
 
     private func runSetupProcess(
