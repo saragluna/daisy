@@ -337,6 +337,7 @@ public sealed class ServiceManager : IDisposable
         }
 
         var startInfo = CreateRedirectedStartInfo(executable);
+        ConfigureLiteLlmEnvironment(startInfo);
         startInfo.ArgumentList.Add("--config");
         startInfo.ArgumentList.Add(SettingsStore.LiteLlmConfigPath);
         startInfo.ArgumentList.Add("--host");
@@ -344,6 +345,12 @@ public sealed class ServiceManager : IDisposable
         startInfo.ArgumentList.Add("--port");
         startInfo.ArgumentList.Add(ServiceId.LiteLlmProxy.Port().ToString());
         return startInfo;
+    }
+
+    internal static void ConfigureLiteLlmEnvironment(ProcessStartInfo startInfo)
+    {
+        startInfo.Environment["PYTHONUTF8"] = "1";
+        startInfo.Environment["PYTHONIOENCODING"] = "utf-8";
     }
 
     private async Task EnsureLiteLlmInstalledAsync()
