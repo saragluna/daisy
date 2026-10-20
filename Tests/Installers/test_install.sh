@@ -8,11 +8,25 @@ temporary_dir="$(mktemp -d "${TMPDIR:-/tmp}/daisy-installer-test.XXXXXX")"
 release_dir="$temporary_dir/release"
 source_dir="$temporary_dir/source"
 install_dir="$temporary_dir/Applications"
+test_bin="$temporary_dir/bin"
 
 cleanup() {
     rm -rf "$temporary_dir"
 }
 trap cleanup EXIT
+
+mkdir -p "$test_bin"
+if [ -z "$archive_under_test" ] || [ "${DAISY_REQUIRE_TRUSTED_ARCHIVE:-0}" != "1" ]; then
+    cat > "$test_bin/codesign" <<'EOF'
+#!/bin/sh
+exit "${DAISY_TEST_CODESIGN_EXIT:-0}"
+EOF
+    cat > "$test_bin/spctl" <<'EOF'
+#!/bin/sh
+exit "${DAISY_TEST_SPCTL_EXIT:-0}"
+EOF
+    chmod +x "$test_bin/codesign" "$test_bin/spctl"
+fi
 
 create_release() {
     release_version="$1"
@@ -33,6 +47,7 @@ create_release() {
 }
 
 run_installer() {
+    PATH="$test_bin:$PATH" \
     DAISY_DOWNLOAD_BASE_URL="file://$release_dir" \
     DAISY_INSTALL_DIR="$install_dir" \
     DAISY_NO_LAUNCH=1 \
@@ -65,6 +80,22 @@ run_installer
 
 test "$(cat "$install_dir/Daisy.app/version.txt")" = "second"
 test ! -e "$install_dir/Daisy.app/stale-file"
+
+create_release "invalid-signature"
+if DAISY_TEST_CODESIGN_EXIT=1 run_installer; then
+    echo "installer accepted an app with an invalid Developer ID signature" >&2
+    exit 1
+fi
+
+test "$(cat "$install_dir/Daisy.app/version.txt")" = "second"
+
+create_release "untrusted"
+if DAISY_TEST_SPCTL_EXIT=1 run_installer; then
+    echo "installer accepted an app rejected by Gatekeeper" >&2
+    exit 1
+fi
+
+test "$(cat "$install_dir/Daisy.app/version.txt")" = "second"
 
 create_release "corrupt"
 printf '%064d  Daisy-macOS.zip\n' 0 > "$release_dir/SHA256SUMS"
