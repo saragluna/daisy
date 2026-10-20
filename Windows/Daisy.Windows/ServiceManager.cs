@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.NetworkInformation;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows;
 
 namespace Daisy.Windows;
@@ -385,7 +386,7 @@ public sealed class ServiceManager : IDisposable
 
         if (!File.Exists(venvPython))
         {
-            var python = FindPythonLauncher()
+            var python = await FindPythonLauncherAsync()
                 ?? throw new InvalidOperationException("Python 3.10 through 3.14 was not found. Install Python and enable its PATH option.");
             var arguments = new List<string>();
             if (Path.GetFileName(python).Equals("py.exe", StringComparison.OrdinalIgnoreCase))
@@ -529,30 +530,101 @@ public sealed class ServiceManager : IDisposable
         StandardErrorEncoding = Encoding.UTF8
     };
 
-    private static string? FindPythonLauncher() => FindExecutable("py.exe", "python.exe", "python3.exe");
+    private static async Task<string?> FindPythonLauncherAsync()
+    {
+        foreach (var candidate in FindExecutableCandidates("py.exe", "python.exe", "python3.exe"))
+        {
+            if (await IsSupportedPythonLauncherAsync(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    internal static async Task<bool> IsSupportedPythonLauncherAsync(string executable)
+    {
+        var startInfo = CreateRedirectedStartInfo(executable);
+        if (Path.GetFileName(executable).Equals("py.exe", StringComparison.OrdinalIgnoreCase))
+        {
+            startInfo.ArgumentList.Add("-3");
+        }
+        startInfo.ArgumentList.Add("--version");
+
+        using var process = new Process { StartInfo = startInfo };
+        try
+        {
+            if (!process.Start())
+            {
+                return false;
+            }
+
+            var standardOutput = process.StandardOutput.ReadToEndAsync();
+            var standardError = process.StandardError.ReadToEndAsync();
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            try
+            {
+                await process.WaitForExitAsync(timeout.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                TryKillProcessTree(process);
+                return false;
+            }
+
+            var output = $"{await standardOutput}\n{await standardError}";
+            return process.ExitCode == 0 && IsSupportedPythonVersionOutput(output);
+        }
+        catch (Exception exception) when (exception is System.ComponentModel.Win32Exception
+                                           or InvalidOperationException
+                                           or IOException)
+        {
+            return false;
+        }
+    }
+
+    internal static bool IsSupportedPythonVersionOutput(string output)
+    {
+        var match = Regex.Match(
+            output,
+            @"\bPython\s+(?<major>\d+)\.(?<minor>\d+)",
+            RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+        return match.Success
+               && int.TryParse(match.Groups["major"].Value, out var major)
+               && int.TryParse(match.Groups["minor"].Value, out var minor)
+               && major == 3
+               && minor is >= 10 and <= 14;
+    }
 
     private static string? FindExecutable(params string[] names)
+        => FindExecutableCandidates(names).FirstOrDefault();
+
+    private static IEnumerable<string> FindExecutableCandidates(params string[] names)
     {
         var pathEntries = (Environment.GetEnvironmentVariable("PATH") ?? string.Empty)
             .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var yielded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var name in names)
         {
             if (Path.IsPathRooted(name) && File.Exists(name))
             {
-                return name;
+                if (yielded.Add(name))
+                {
+                    yield return name;
+                }
+                continue;
             }
 
             foreach (var directory in pathEntries)
             {
                 var candidate = Path.Combine(directory.Trim('"'), name);
-                if (File.Exists(candidate))
+                if (File.Exists(candidate) && yielded.Add(candidate))
                 {
-                    return candidate;
+                    yield return candidate;
                 }
             }
         }
-
-        return null;
     }
 
     private static void EnsurePortIsAvailable(ServiceId id)
