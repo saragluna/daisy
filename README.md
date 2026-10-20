@@ -22,6 +22,31 @@ The clients share a language-neutral behavioral contract for configuration editi
 - Menu bar or system-tray controls for quick service actions
 - LiteLLM runs in an isolated Python venv (auto-installed on first launch)
 
+## One-command install
+
+Install the latest release for macOS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/saragluna/daisy/main/install.sh | bash
+```
+
+The macOS installer downloads the universal release, verifies its SHA-256
+checksum, installs it to `~/Applications/Daisy.app`, and launches it.
+
+Install the latest release from PowerShell on Windows:
+
+```powershell
+irm https://raw.githubusercontent.com/saragluna/daisy/main/install.ps1 | iex
+```
+
+The Windows installer selects x64 or Arm64 automatically, verifies its SHA-256
+checksum, installs it under `%LOCALAPPDATA%\Programs\Daisy`, adds a Start menu
+shortcut, and launches it. Node.js and Python are still required for Daisy's
+managed services; see the platform requirements below.
+
+Set `DAISY_VERSION` before running either command to install a specific release
+tag. Both installers also support `DAISY_INSTALL_DIR` and `DAISY_NO_LAUNCH=1`.
+
 ## macOS Requirements
 
 - macOS 14 or newer
@@ -103,6 +128,10 @@ pull request, and manual run:
 
 The generated packages are available from the workflow run's **Artifacts**
 section. CI artifacts are unsigned development builds.
+
+Pushing a `v*` tag runs the `Release` workflow. It publishes a universal macOS
+archive, x64 and Arm64 Windows archives, and `SHA256SUMS` to GitHub Releases for
+the one-command installers.
 
 ## Project Structure
 

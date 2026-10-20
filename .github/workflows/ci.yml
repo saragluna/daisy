@@ -33,6 +33,11 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent \
             build/Daisy.app artifacts/Daisy-macOS.zip
 
+      - name: Test macOS installer
+        run: |
+          Tests/Installers/test_install.sh
+          Tests/Installers/test_install.sh artifacts/Daisy-macOS.zip
+
       - name: Upload macOS artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -66,6 +71,14 @@ jobs:
       - name: Publish ${{ matrix.runtime }}
         shell: pwsh
         run: .\Windows\publish.ps1 -Runtime ${{ matrix.runtime }}
+
+      - name: Test Windows installer
+        if: matrix.runtime == 'win-x64'
+        shell: pwsh
+        run: |
+          .\Tests\Installers\test_install.ps1
+          Compress-Archive -Path "artifacts\Daisy-win-x64\*" -DestinationPath "$env:RUNNER_TEMP\Daisy-win-x64.zip"
+          .\Tests\Installers\test_install.ps1 -ArchivePath "$env:RUNNER_TEMP\Daisy-win-x64.zip"
 
       - name: Upload ${{ matrix.runtime }} artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

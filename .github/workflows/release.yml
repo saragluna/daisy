@@ -1,0 +1,118 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    name: Package macOS
+    runs-on: macos-14
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Run Swift conformance tests
+        run: swift test
+
+      - name: Build universal app bundle
+        run: ./run.sh --build-only --universal
+
+      - name: Package app bundle
+        run: |
+          mkdir -p artifacts
+          ditto -c -k --sequesterRsrc --keepParent \
+            build/Daisy.app artifacts/Daisy-macOS.zip
+
+      - name: Test installer
+        run: Tests/Installers/test_install.sh artifacts/Daisy-macOS.zip
+
+      - name: Upload release asset
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-macos
+          path: artifacts/Daisy-macOS.zip
+          if-no-files-found: error
+
+  windows:
+    name: Package Windows (${{ matrix.runtime }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime:
+          - win-x64
+          - win-arm64
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Run .NET conformance tests
+        if: matrix.runtime == 'win-x64'
+        run: dotnet run --project Tests/Windows/Daisy.Core.ContractTests/Daisy.Core.ContractTests.csproj
+
+      - name: Publish ${{ matrix.runtime }}
+        shell: pwsh
+        run: .\Windows\publish.ps1 -Runtime ${{ matrix.runtime }}
+
+      - name: Create release archive
+        shell: pwsh
+        run: Compress-Archive -Path "artifacts\Daisy-${{ matrix.runtime }}\*" -DestinationPath "artifacts\Daisy-${{ matrix.runtime }}.zip"
+
+      - name: Test installer
+        if: matrix.runtime == 'win-x64'
+        shell: pwsh
+        run: .\Tests\Installers\test_install.ps1 -ArchivePath "artifacts\Daisy-win-x64.zip"
+
+      - name: Upload release asset
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-${{ matrix.runtime }}
+          path: artifacts/Daisy-${{ matrix.runtime }}.zip
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs:
+      - macos
+      - windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download release assets
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksums
+        working-directory: dist
+        run: sha256sum Daisy-*.zip > SHA256SUMS
+
+      - name: Create GitHub release
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            dist/Daisy-macOS.zip \
+            dist/Daisy-win-x64.zip \
+            dist/Daisy-win-arm64.zip \
+            dist/SHA256SUMS \
+            --verify-tag \
+            --generate-notes \
+            --title "Daisy $GITHUB_REF_NAME"
