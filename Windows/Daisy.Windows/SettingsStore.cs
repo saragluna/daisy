@@ -10,6 +10,7 @@ namespace Daisy.Windows;
 public sealed class SettingsStore
 {
     public const string DefaultLiteLlmVersion = "1.101.0";
+    internal const string DefaultLiteLlmConfig = "model_list: []\n";
     private const string StartupRegistryPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string StartupValueName = "Daisy";
     private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
@@ -43,7 +44,7 @@ public sealed class SettingsStore
     public void Load()
     {
         Token = ReadToken();
-        LiteLlmConfig = ReadFileOrDefault(LiteLlmConfigPath, string.Empty);
+        LiteLlmConfig = LoadOrCreateLiteLlmConfig(LiteLlmConfigPath);
         var configuredVersion = ReadFileOrDefault(LiteLlmVersionPath, string.Empty).Trim();
         LiteLlmVersion = configuredVersion.Length == 0
                          || configuredVersion.Equals("latest", StringComparison.OrdinalIgnoreCase)
@@ -209,6 +210,17 @@ public sealed class SettingsStore
         {
             return fallback;
         }
+    }
+
+    internal static string LoadOrCreateLiteLlmConfig(string path)
+    {
+        if (File.Exists(path))
+        {
+            return ReadFileOrDefault(path, DefaultLiteLlmConfig);
+        }
+
+        File.WriteAllText(path, DefaultLiteLlmConfig, Utf8NoBom);
+        return DefaultLiteLlmConfig;
     }
 
     private static string ReadToken()

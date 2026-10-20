@@ -34,4 +34,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Daisy.Core\Daisy.Core.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Daisy.Windows.RegressionTests" />
+  </ItemGroup>
 </Project>
