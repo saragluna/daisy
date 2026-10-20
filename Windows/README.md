@@ -10,6 +10,20 @@ The Windows client is a native .NET 8 WPF companion to the macOS SwiftUI app. It
 
 The published build is self-contained, so users do not need to install .NET.
 
+## One-command install
+
+Run this in PowerShell to install the latest release for the current Windows
+architecture:
+
+```powershell
+irm https://raw.githubusercontent.com/saragluna/daisy/main/install.ps1 | iex
+```
+
+The installer verifies the release checksum, installs Daisy under
+`%LOCALAPPDATA%\Programs\Daisy`, creates a Start menu shortcut, and launches the
+app. Set `DAISY_VERSION` to a release tag before running the command to install
+a specific version.
+
 ## Run from source
 
 ```powershell
