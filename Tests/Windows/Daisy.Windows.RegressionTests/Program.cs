@@ -1,6 +1,12 @@
 using System.Diagnostics;
 using Daisy.Windows;
 
+if (args is ["--version"])
+{
+    Console.WriteLine(Environment.GetEnvironmentVariable("DAISY_TEST_PYTHON_VERSION") ?? "not Python");
+    return 0;
+}
+
 var failures = new List<string>();
 var temporaryDirectory = Path.Combine(Path.GetTempPath(), $"daisy-regression-{Guid.NewGuid():N}");
 
@@ -21,6 +27,40 @@ try
     ServiceManager.ConfigureLiteLlmEnvironment(startInfo);
     Check(startInfo.Environment["PYTHONUTF8"] == "1", "LiteLLM enables Python UTF-8 mode");
     Check(startInfo.Environment["PYTHONIOENCODING"] == "utf-8", "LiteLLM uses UTF-8 standard streams");
+
+    Check(ServiceManager.IsSupportedPythonVersionOutput("Python 3.10.0"), "Python 3.10 is supported");
+    Check(ServiceManager.IsSupportedPythonVersionOutput("Python 3.14.1\r\n"), "Python 3.14 is supported");
+    Check(!ServiceManager.IsSupportedPythonVersionOutput("Python 3.9.18"), "Python 3.9 is rejected");
+    Check(!ServiceManager.IsSupportedPythonVersionOutput("Python 3.15.0"), "Python 3.15 is rejected");
+    Check(
+        !ServiceManager.IsSupportedPythonVersionOutput(
+            "Python was not found; run without arguments to install from the Microsoft Store"),
+        "the Microsoft Store app execution alias is rejected");
+
+    var processPath = Environment.ProcessPath;
+    Check(processPath is not null, "the regression test process path is available");
+    if (processPath is not null)
+    {
+        var previousFakeVersion = Environment.GetEnvironmentVariable("DAISY_TEST_PYTHON_VERSION");
+        try
+        {
+            Environment.SetEnvironmentVariable("DAISY_TEST_PYTHON_VERSION", "Python 3.12.7");
+            Check(
+                await ServiceManager.IsSupportedPythonLauncherAsync(processPath),
+                "a launcher reporting a supported Python version is accepted");
+
+            Environment.SetEnvironmentVariable(
+                "DAISY_TEST_PYTHON_VERSION",
+                "Python was not found; run without arguments to install from the Microsoft Store");
+            Check(
+                !await ServiceManager.IsSupportedPythonLauncherAsync(processPath),
+                "a launcher reporting the Microsoft Store placeholder is rejected");
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("DAISY_TEST_PYTHON_VERSION", previousFakeVersion);
+        }
+    }
 }
 finally
 {

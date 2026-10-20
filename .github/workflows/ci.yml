@@ -68,6 +68,10 @@ jobs:
         if: matrix.runtime == 'win-x64'
         run: dotnet run --project Tests/Windows/Daisy.Core.ContractTests/Daisy.Core.ContractTests.csproj
 
+      - name: Run Windows regression tests
+        if: matrix.runtime == 'win-x64'
+        run: dotnet run --project Tests/Windows/Daisy.Windows.RegressionTests/Daisy.Windows.RegressionTests.csproj
+
       - name: Publish ${{ matrix.runtime }}
         shell: pwsh
         run: .\Windows\publish.ps1 -Runtime ${{ matrix.runtime }}
