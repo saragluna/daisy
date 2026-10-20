@@ -31,7 +31,8 @@ curl -fsSL https://raw.githubusercontent.com/saragluna/daisy/main/install.sh | b
 ```
 
 The macOS installer downloads the universal release, verifies its SHA-256
-checksum, installs it to `~/Applications/Daisy.app`, and launches it.
+checksum and Developer ID signature, requires Gatekeeper acceptance, installs
+it to `~/Applications/Daisy.app`, and launches it.
 
 Install the latest release from PowerShell on Windows:
 
@@ -131,7 +132,18 @@ section. CI artifacts are unsigned development builds.
 
 Pushing a `v*` tag runs the `Release` workflow. It publishes a universal macOS
 archive, x64 and Arm64 Windows archives, and `SHA256SUMS` to GitHub Releases for
-the one-command installers.
+the one-command installers. macOS releases fail closed unless the following
+repository secrets are configured:
+
+- `MACOS_CERTIFICATE_BASE64` - base64-encoded Developer ID Application `.p12`
+- `MACOS_CERTIFICATE_PASSWORD` - password for that `.p12`
+- `APPLE_API_KEY_BASE64` - base64-encoded App Store Connect API `.p8` key
+- `APPLE_API_KEY_ID` - App Store Connect API key ID
+- `APPLE_API_ISSUER_ID` - App Store Connect API issuer ID
+
+The workflow signs with the hardened runtime, submits the app to Apple's notary
+service, staples the ticket, and verifies Gatekeeper acceptance before it can
+publish the macOS archive.
 
 ## Project Structure
 

@@ -23,6 +23,15 @@ jobs:
       - name: Build universal app bundle
         run: ./run.sh --build-only --universal
 
+      - name: Sign and notarize app bundle
+        env:
+          MACOS_CERTIFICATE_BASE64: ${{ secrets.MACOS_CERTIFICATE_BASE64 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: scripts/sign-and-notarize-macos.sh build/Daisy.app
+
       - name: Package app bundle
         run: |
           mkdir -p artifacts
@@ -30,6 +39,8 @@ jobs:
             build/Daisy.app artifacts/Daisy-macOS.zip
 
       - name: Test installer
+        env:
+          DAISY_REQUIRE_TRUSTED_ARCHIVE: 1
         run: Tests/Installers/test_install.sh artifacts/Daisy-macOS.zip
 
       - name: Upload release asset

@@ -55,7 +55,7 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
-for command_name in curl unzip shasum ditto; do
+for command_name in codesign curl ditto shasum spctl unzip; do
     command -v "$command_name" >/dev/null 2>&1 || fail "required command not found: $command_name"
 done
 
@@ -133,6 +133,11 @@ unzip -q "$archive_path" -d "$extracted_dir"
 
 source_app="$extracted_dir/Daisy.app"
 [ -x "$source_app/Contents/MacOS/Daisy" ] || fail "release archive does not contain a valid Daisy.app"
+
+codesign --verify --deep --strict "$source_app" >/dev/null 2>&1 \
+    || fail "release app has an invalid Developer ID signature"
+spctl --assess --type execute "$source_app" >/dev/null 2>&1 \
+    || fail "release app is not accepted by macOS Gatekeeper"
 
 mkdir -p "$install_dir"
 target_app="$install_dir/Daisy.app"
