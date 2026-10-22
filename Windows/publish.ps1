@@ -25,7 +25,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "dotnet publish failed with exit code $LASTEXITCODE"
 }
 
-foreach ($runtimeFile in @("litellm-requirements.txt", "litellm-runtime-version.txt")) {
+foreach ($runtimeFile in @("litellm-requirements.txt", "litellm-runtime-version.txt", "patch-litellm-runtime.py")) {
     $runtimePath = Join-Path $output $runtimeFile
     if (-not (Test-Path $runtimePath -PathType Leaf)) {
         throw "Published app is missing bundled LiteLLM runtime file: $runtimeFile"

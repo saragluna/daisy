@@ -357,7 +357,8 @@ public sealed class ServiceManager : IDisposable
     {
         var requirementsPath = Path.Combine(AppContext.BaseDirectory, "litellm-requirements.txt");
         var runtimeVersionPath = Path.Combine(AppContext.BaseDirectory, "litellm-runtime-version.txt");
-        if (!File.Exists(requirementsPath) || !File.Exists(runtimeVersionPath))
+        var runtimePatchPath = Path.Combine(AppContext.BaseDirectory, "patch-litellm-runtime.py");
+        if (!File.Exists(requirementsPath) || !File.Exists(runtimeVersionPath) || !File.Exists(runtimePatchPath))
         {
             throw new InvalidOperationException("The bundled LiteLLM runtime manifest is missing. Reinstall Daisy.");
         }
@@ -407,6 +408,10 @@ public sealed class ServiceManager : IDisposable
             ServiceId.LiteLlmProxy,
             venvPython,
             new[] { "-m", "pip", "uninstall", "--yes", "litellm-enterprise" });
+        await RunSetupProcessAsync(
+            ServiceId.LiteLlmProxy,
+            venvPython,
+            new[] { runtimePatchPath, desiredVersion });
         File.WriteAllText(markerPath, desiredMarker, Encoding.UTF8);
     }
 

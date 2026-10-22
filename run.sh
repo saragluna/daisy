@@ -103,7 +103,7 @@ if [ -d "$bundled_resource_directory/Contents/Resources" ]; then
     bundled_resource_directory="$bundled_resource_directory/Contents/Resources"
 fi
 
-for runtime_file in litellm-requirements.txt litellm-runtime-version.txt; do
+for runtime_file in litellm-requirements.txt litellm-runtime-version.txt patch-litellm-runtime.py; do
     if [ ! -f "$bundled_resource_directory/$runtime_file" ]; then
         echo "Missing bundled LiteLLM runtime file: $runtime_file" >&2
         exit 1

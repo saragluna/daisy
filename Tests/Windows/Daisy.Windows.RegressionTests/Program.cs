@@ -21,6 +21,15 @@ try
     ServiceManager.ConfigureLiteLlmEnvironment(startInfo);
     Check(startInfo.Environment["PYTHONUTF8"] == "1", "LiteLLM enables Python UTF-8 mode");
     Check(startInfo.Environment["PYTHONIOENCODING"] == "utf-8", "LiteLLM uses UTF-8 standard streams");
+
+    var runtimePatchPath = Path.Combine(AppContext.BaseDirectory, "patch-litellm-runtime.py");
+    Check(File.Exists(runtimePatchPath), "published Windows app includes the LiteLLM runtime patch");
+    if (File.Exists(runtimePatchPath))
+    {
+        var runtimePatch = File.ReadAllText(runtimePatchPath);
+        Check(runtimePatch.Contains("if not result.choices:", StringComparison.Ordinal),
+            "LiteLLM runtime patch guards empty choices");
+    }
 }
 finally
 {

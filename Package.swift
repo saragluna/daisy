@@ -23,7 +23,8 @@ let package = Package(
                 .copy("Resources/AppIcon.icns"),
                 .copy("Resources/copilot-runtime"),
                 .copy("Resources/litellm-requirements.txt"),
-                .copy("Resources/litellm-runtime-version.txt")
+                .copy("Resources/litellm-runtime-version.txt"),
+                .copy("Resources/patch-litellm-runtime.py")
             ]
         ),
         .testTarget(

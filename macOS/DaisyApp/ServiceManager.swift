@@ -296,6 +296,9 @@ final class ServiceManager: ObservableObject {
         guard let requirements = Bundle.module.url(
             forResource: "litellm-requirements",
             withExtension: "txt"
+        ), let runtimePatch = Bundle.module.url(
+            forResource: "patch-litellm-runtime",
+            withExtension: "py"
         ), let runtimeVersionPath = Bundle.module.url(
             forResource: "litellm-runtime-version",
             withExtension: "txt"
@@ -370,6 +373,12 @@ final class ServiceManager: ObservableObject {
             arguments: [
                 "-m", "pip", "uninstall", "--yes", "litellm-enterprise"
             ],
+            service: .liteLLMProxy,
+            currentDirectory: SettingsManager.appSupportDir
+        )
+        try runSetupProcess(
+            executable: venvPython,
+            arguments: [runtimePatch.path, version],
             service: .liteLLMProxy,
             currentDirectory: SettingsManager.appSupportDir
         )

@@ -118,13 +118,18 @@ jobs:
       - name: Verify open-source LiteLLM runtime
         run: |
           ! grep -F 'litellm[proxy]' macOS/DaisyApp/ServiceManager.swift Windows/Daisy.Windows/ServiceManager.cs
+          python3 Tests/Runtime/test_patch_litellm_runtime.py
           python3 -m venv /tmp/daisy-litellm-venv
           version=$(tr -d '[:space:]' < macOS/DaisyApp/Resources/litellm-runtime-version.txt)
-          test "$version" = open-proxy.2
+          test "$version" = open-proxy.3
           /tmp/daisy-litellm-venv/bin/python -m pip install \
             --disable-pip-version-check \
             'litellm==1.101.0' \
             -r macOS/DaisyApp/Resources/litellm-requirements.txt
+          /tmp/daisy-litellm-venv/bin/python \
+            macOS/DaisyApp/Resources/patch-litellm-runtime.py 1.101.0
+          /tmp/daisy-litellm-venv/bin/python \
+            macOS/DaisyApp/Resources/patch-litellm-runtime.py 1.101.0
           /tmp/daisy-litellm-venv/bin/python -m pip install \
             --disable-pip-version-check \
             'pip-audit==2.10.1'
